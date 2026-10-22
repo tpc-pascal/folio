@@ -1,0 +1,33 @@
+name: CI — Lint & Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: pip install -r hf/requirements.txt
+
+      - name: Install dev deps
+        run: pip install -e ".[dev]" 2>/dev/null || pip install pytest ruff
+
+      - name: Ruff lint
+        run: ruff check hf tests
+
+      - name: Ruff format check
+        run: ruff format --check hf tests
+
+      - name: Tests
+        run: pytest -q

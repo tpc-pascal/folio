@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "folio"
+version = "1.0.0"
+description = "A virtual bookshelf and PDF reader built on Gradio."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "tpc-pascal" }]
+keywords = ["pdf", "reader", "bookshelf", "gradio", "pymupdf"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Office/Business",
+]
+dependencies = [
+    "gradio==5.15.0",
+    "pymupdf>=1.25.0",
+    "pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[project.urls]
+Homepage = "https://github.com/tpc-pascal/folio"
+Repository = "https://github.com/tpc-pascal/folio"
+Issues = "https://github.com/tpc-pascal/folio/issues"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["hf", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["SIM105"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["folio"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["hf"]
