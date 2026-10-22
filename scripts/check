@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Single source of truth for the checks CI runs (see .github/workflows/ci.yml).
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+
+case "${1:-all}" in
+  lint)
+    ruff check --line-length 100 --target-version py310 \
+      --select E,F,W,I,UP,B,SIM --ignore SIM105 \
+      --config 'src = ["hf", "tests"]' hf tests
+    ;;
+  format)
+    ruff format --line-length 100 --target-version py310 --check hf tests
+    ;;
+  test)
+    pytest -q tests
+    ;;
+  all)
+    "$0" lint
+    "$0" format
+    "$0" test
+    ;;
+  *)
+    echo "usage: $0 [lint|format|test|all]" >&2
+    exit 2
+    ;;
+esac

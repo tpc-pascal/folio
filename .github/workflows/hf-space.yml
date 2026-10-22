@@ -1,0 +1,128 @@
+name: Hugging Face Space
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to run"
+        type: choice
+        required: true
+        default: deploy
+        options:
+          - deploy
+          - keep-alive
+          - set-hardware
+      hardware:
+        description: "Hardware to request (set-hardware only, e.g. cpu-basic)"
+        required: false
+        default: cpu-basic
+
+env:
+  HF_REPO: tpc-pascal/folio
+
+jobs:
+  deploy:
+    name: Deploy to Space
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'deploy')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download and extract assets from latest Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(gh release list --limit 1 --json tagName --jq '.[0].tagName')
+          if [ -n "$TAG" ]; then
+            echo "Latest release found: $TAG. Downloading assets..."
+            gh release download "$TAG" --clobber 2>/dev/null || true
+            if [ -f "materials.zip" ]; then
+              unzip -o materials.zip
+              echo "Extracted assets from materials.zip in release: $TAG"
+            else
+              echo "Warning: 'materials.zip' not found in this release. Skipping extraction."
+            fi
+          else
+            echo "No release found, skipping asset download"
+          fi
+
+      - name: Assemble and push to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          TEMP_DIR="../hf_sync_internal"
+          rm -rf $TEMP_DIR
+          mkdir -p $TEMP_DIR
+          cp -r hf/. $TEMP_DIR/
+          cd $TEMP_DIR
+
+          git config --global init.defaultBranch main
+          git init
+          git config user.name "tpc-pascal"
+          git config user.email "tpcmemory2005@gmail.com"
+
+          git add .
+          git commit -m "ci: sync the hf/ folder to the Space" || echo "Nothing to commit"
+
+          git push --force https://tpc-pascal:${HF_TOKEN}@huggingface.co/spaces/${HF_REPO} main
+
+  keep-alive:
+    name: Restart the Space
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && inputs.action == 'keep-alive')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restart the Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+            "https://huggingface.co/api/spaces/${HF_REPO}/restart" \
+            -H "Authorization: Bearer $HF_TOKEN")
+          if [ "$RESPONSE" = "200" ] || [ "$RESPONSE" = "201" ]; then
+            echo "Space is running (HTTP $RESPONSE)."
+          else
+            echo "Restart failed with HTTP status $RESPONSE"
+            exit 1
+          fi
+
+  set-hardware:
+    name: Set Space hardware
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'set-hardware'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install huggingface_hub
+        run: pip install -q "huggingface_hub>=0.30"
+
+      - name: Request hardware
+        env:
+          HW: ${{ inputs.hardware }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python - <<'EOF'
+          import os
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          hardware = os.environ["HW"]
+          repo = os.environ["HF_REPO"]
+          print(f"Requesting hardware {hardware!r} for {repo}")
+          api.request_space_hardware(repo, hardware)
+          print("OK — hardware change requested")
+          EOF
