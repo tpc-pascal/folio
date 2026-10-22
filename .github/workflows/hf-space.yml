@@ -1,4 +1,4 @@
-name: Hugging Face Space
+name: Hugging Face Space — Deploy & Keep-Alive
 
 on:
   push:
@@ -39,7 +39,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download and extract assets from latest Release
+      - name: Download and Extract Assets from Latest Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -57,7 +57,7 @@ jobs:
             echo "No release found, skipping asset download"
           fi
 
-      - name: Assemble and push to the Space
+      - name: Assemble and Push to the Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
@@ -99,7 +99,7 @@ jobs:
           fi
 
   set-hardware:
-    name: Set Space hardware
+    name: Set Space Hardware
     if: github.event_name == 'workflow_dispatch' && inputs.action == 'set-hardware'
     runs-on: ubuntu-latest
     steps:
@@ -107,10 +107,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install huggingface_hub
+      - name: Install Huggingface Hub
         run: pip install -q "huggingface_hub>=0.30"
 
-      - name: Request hardware
+      - name: Request Hardware
         env:
           HW: ${{ inputs.hardware }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
